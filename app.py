@@ -16,7 +16,7 @@ st.markdown(
 **범례**
 - <span style='color:blue'>■</span> 면접
 - <span style='color:purple'>■</span> 논술
-- <span style='color:yellow'>■</span> 1차 발표
+- <span style='color:orange'>■</span> 1차 발표
 - <span style='color:green'>■</span> 2차 발표(최종)
 """,
     unsafe_allow_html=True,
@@ -139,7 +139,7 @@ def build_events(df, target_year=None):
                     }
                 })
 
-            # 1단계 발표(P열) - 노란색
+            # 1단계 발표(P열) - 주황색
             p_date = safe_date(row.iloc[COL_P])
             if p_date and p_date.year == target_year:
                 title = f"{ban}/{name}/{two_kor(univ, 3)}/{typ}"
@@ -147,7 +147,7 @@ def build_events(df, target_year=None):
                     "title": title,
                     "start": p_date.isoformat(),
                     "allDay": True,
-                    "color": "yellow",
+                    "color": "orange",
                     "extendedProps": {
                         "detail": f"{ban} / {name} / {vval}",
                         "cat": "1단계 발표",
