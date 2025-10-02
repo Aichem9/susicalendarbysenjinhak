@@ -1,54 +1,179 @@
 import io
+import importlib
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 from dateutil.parser import parse
 from streamlit_calendar import calendar
-# ... (생략: 나머지 코드는 기존 그대로) ...
 
-@st.cache_data(show_spinner=False)
-def load_df(file_bytes: bytes, filename: str):
-    """
-    업로드 파일 바이트와 파일명으로 DataFrame 로드.
-    - 헤더는 3행(1-indexed) -> header=2
-    - .xlsx: openpyxl
-    - .xls : xlrd(1.2.0) 필요
-    """
-    ext = (filename or "").lower().strip().split(".")[-1]
-
-    bio = io.BytesIO(file_bytes)
-
-    if ext == "xlsx":
-        df = pd.read_excel(bio, header=2, dtype=str, engine="openpyxl")
-    elif ext == "xls":
-        try:
-            df = pd.read_excel(bio, header=2, dtype=str, engine="xlrd")
-        except ImportError:
-            # 안전한 안내 메시지
-            raise RuntimeError(
-                "'.xls' 파일을 읽으려면 xlrd==1.2.0이 필요합니다. "
-                "requirements.txt에 'xlrd==1.2.0'을 추가한 뒤 다시 배포하세요."
-            )
-    else:
-        raise RuntimeError("지원하지 않는 확장자입니다. .xls 또는 .xlsx 파일을 업로드하세요.")
-
-    return df
-
-# ---------------- App Flow ----------------
 st.set_page_config(page_title="수시 일정 캘린더", layout="wide")
+
 st.title("수시 지원/발표 일정 캘린더")
 st.caption("엑셀 업로드 → 10·11·12월 달력에 자동 표시. 이벤트 클릭 시 반/이름/V열 값 표시.")
 
 uploaded = st.file_uploader("엑셀 파일(.xlsx/.xls)을 업로드하세요 (헤더는 3행)", type=["xlsx", "xls"])
 
+def safe_date(x):
+    if pd.isna(x) or str(x).strip() == "":
+        return None
+    try:
+        return parse(str(x)).date()
+    except Exception:
+        return None
+
+def two_kor(s, n):
+    if pd.isna(s):
+        return ""
+    s = str(s).strip()
+    return s[:n]
+
+def extract_class_from_A(a_value):
+    if pd.isna(a_value):
+        return ""
+    s = "".join(str(a_value).strip().split())
+    if len(s) >= 3:
+        return s[1:3]
+    return s
+
+def fc_options(initial_date):
+    return {
+        "initialView": "dayGridMonth",
+        "locale": "ko",
+        "firstDay": 0,
+        "height": 720,
+        "initialDate": initial_date,
+        "headerToolbar": {
+            "left": "",
+            "center": "title",
+            "right": ""
+        },
+        "dayMaxEventRows": True,
+        "fixedWeekCount": False,
+        "eventDisplay": "block",
+        "eventOrder": "title,start"
+    }
+
+@st.cache_data(show_spinner=False)
+def load_df(file_bytes: bytes, filename: str):
+    ext = (filename or "").lower().strip().split(".")[-1]
+    bio = io.BytesIO(file_bytes)
+
+    if ext == "xlsx":
+        return pd.read_excel(bio, header=2, dtype=str, engine="openpyxl")
+
+    if ext == "xls":
+        try:
+            importlib.import_module("xlrd")
+            return pd.read_excel(bio, header=2, dtype=str, engine="xlrd")
+        except Exception:
+            st.error(
+                "현재 환경에서는 `.xls` 파일을 읽을 수 없습니다.\n"
+                "➡️ 해결 방법:\n"
+                "1) 파일을 `.xlsx`로 저장해서 다시 업로드하시거나\n"
+                "2) runtime.txt를 Python 3.11로 설정하고, requirements.txt에 xlrd==1.2.0 추가 후 재배포하세요."
+            )
+            st.stop()
+
+    st.error("지원하지 않는 확장자입니다. .xls 또는 .xlsx 파일을 업로드하세요.")
+    st.stop()
+
+def build_events(df, target_year=None):
+    events = []
+    COL_A, COL_B, COL_D = 0, 1, 3
+    COL_N, COL_O, COL_P, COL_Q, COL_V = 13, 14, 15, 16, 21
+
+    if target_year is None:
+        years = []
+        for col in [COL_O, COL_P, COL_Q]:
+            for x in df.iloc[:, col].dropna().tolist():
+                d = safe_date(x)
+                if d:
+                    years.append(d.year)
+        if years:
+            target_year = max(years)
+        else:
+            target_year = datetime.now().year
+
+    for _, row in df.iterrows():
+        try:
+            a = row.iloc[COL_A]
+            ban = extract_class_from_A(a)
+            name = str(row.iloc[COL_B]).strip() if not pd.isna(row.iloc[COL_B]) else ""
+            univ = str(row.iloc[COL_D]).strip() if not pd.isna(row.iloc[COL_D]) else ""
+            typ = str(row.iloc[COL_N]).strip() if not pd.isna(row.iloc[COL_N]) else ""
+            vval = str(row.iloc[COL_V]).strip() if not pd.isna(row.iloc[COL_V]) else ""
+
+            o_date = safe_date(row.iloc[COL_O])
+            if o_date and o_date.year == target_year:
+                title = f"{ban}/{name}/{two_kor(univ, 2)}/{typ}"
+                events.append({
+                    "title": title,
+                    "start": o_date.isoformat(),
+                    "allDay": True,
+                    "extendedProps": {
+                        "detail": f"{ban} / {name} / {vval}",
+                        "cat": "전형일",
+                    }
+                })
+
+            p_date = safe_date(row.iloc[COL_P])
+            if p_date and p_date.year == target_year:
+                title = f"{ban}/{name}/{two_kor(univ, 3)}/{typ}"
+                events.append({
+                    "title": title,
+                    "start": p_date.isoformat(),
+                    "allDay": True,
+                    "extendedProps": {
+                        "detail": f"{ban} / {name} / {vval}",
+                        "cat": "1단계 발표",
+                    }
+                })
+
+            q_date = safe_date(row.iloc[COL_Q])
+            if q_date and q_date.year == target_year:
+                title = f"{ban}/{name}/{two_kor(univ, 3)}/{typ}"
+                events.append({
+                    "title": title,
+                    "start": q_date.isoformat(),
+                    "allDay": True,
+                    "extendedProps": {
+                        "detail": f"{ban} / {name} / {vval}",
+                        "cat": "최종 발표",
+                    }
+                })
+
+        except Exception:
+            continue
+
+    return events, target_year
+
+def filter_month_events(events, year, month):
+    mm = f"{year:04d}-{month:02d}"
+    return [ev for ev in events if str(ev["start"]).startswith(mm)]
+
 if uploaded is None:
     st.info("예시: 헤더가 3행에 있고, A/B/D/N/O/P/Q/V 열이 존재하는 엑셀을 올려주세요.")
     st.stop()
 
-# ✅ 파일을 바이트로 읽어 캐시/리로드 이슈 방지
 file_bytes = uploaded.read()
 df = load_df(file_bytes, uploaded.name)
 
-# (이 아래로는 기존 build_events / 캘린더 표시 로직 그대로 사용)
-# events_all, yr = build_events(df)
-# ...
+events_all, yr = build_events(df)
+
+tabs = st.tabs([f"{yr}년 10월", f"{yr}년 11월", f"{yr}년 12월"])
+
+clicked_detail_placeholder = st.empty()
+
+for tab, month in zip(tabs, [10, 11, 12]):
+    with tab:
+        month_events = filter_month_events(events_all, yr, month)
+        opts = fc_options(f"{yr}-{month:02d}-01")
+        state = calendar(events=month_events, options=opts, key=f"cal-{yr}-{month}")
+        if state and "eventClick" in state and state["eventClick"]:
+            info = state["eventClick"]["event"]
+            ext = info.get("extendedProps", {})
+            detail = ext.get("detail", "")
+            cat = ext.get("cat", "")
+            clicked_detail_placeholder.success(f"[{cat}] {detail}")
+
+st.caption("※ 동일 날짜에 여러 학생 일정이 겹치면 한 화면에 함께 표시됩니다.")
