@@ -9,8 +9,8 @@ from streamlit_calendar import calendar
 st.set_page_config(page_title="수시 일정 캘린더", layout="wide")
 
 st.title("수시 지원/발표 일정 캘린더")
-st.caption("엑셀 업로드 → 10·11·12월 달력에 자동 표시. 이벤트 클릭 시 반/이름/V열 값 표시.\n"
-           "senjinhak 수시지원 결과 파일을 다운로드하여 사용하세요.")
+st.caption("senjinhak 수시지원 결과 파일을 다운로드 후 엑셀 xlsx로 변환하여 업로드하세요."
+           "엑셀 xlsx로 변환 → 10·11·12월 달력에 자동 표시. 이벤트 클릭 시 반/이름/V열 값 표시.\n")
 
 uploaded = st.file_uploader("엑셀 파일(.xlsx/.xls)을 업로드하세요 (헤더는 3행)", type=["xlsx", "xls"])
 
