@@ -9,8 +9,8 @@ from streamlit_calendar import calendar
 st.set_page_config(page_title="수시 일정 캘린더", layout="wide")
 
 st.title("수시 지원/발표 일정 캘린더")
-st.caption("senjinhak 수시지원 결과 파일을 다운로드 후 엑셀 xlsx로 변환하여 업로드하세요."
-           "엑셀 xlsx로 변환 → 10·11·12월 달력에 자동 표시. 이벤트 클릭 시 반/이름/V열 값 표시.\n")
+st.caption("엑셀 업로드 → 10·11·12월 달력에 자동 표시. 이벤트 클릭 시 반/이름/V열 값 표시.\n"
+           "senjinhak 수시지원 결과 파일을 다운로드하여 사용하세요.")
 
 uploaded = st.file_uploader("엑셀 파일(.xlsx/.xls)을 업로드하세요 (헤더는 3행)", type=["xlsx", "xls"])
 
@@ -104,19 +104,27 @@ def build_events(df, target_year=None):
             typ = str(row.iloc[COL_N]).strip() if not pd.isna(row.iloc[COL_N]) else ""
             vval = str(row.iloc[COL_V]).strip() if not pd.isna(row.iloc[COL_V]) else ""
 
+            # 전형일(O열)
             o_date = safe_date(row.iloc[COL_O])
             if o_date and o_date.year == target_year:
                 title = f"{ban}/{name}/{two_kor(univ, 2)}/{typ}"
+                color = None
+                if "면접" in typ:
+                    color = "blue"
+                elif "논술" in typ:
+                    color = "purple"
                 events.append({
                     "title": title,
                     "start": o_date.isoformat(),
                     "allDay": True,
+                    "color": color,
                     "extendedProps": {
                         "detail": f"{ban} / {name} / {vval}",
                         "cat": "전형일",
                     }
                 })
 
+            # 1단계 발표(P열)
             p_date = safe_date(row.iloc[COL_P])
             if p_date and p_date.year == target_year:
                 title = f"{ban}/{name}/{two_kor(univ, 3)}/{typ}"
@@ -124,12 +132,14 @@ def build_events(df, target_year=None):
                     "title": title,
                     "start": p_date.isoformat(),
                     "allDay": True,
+                    "color": "yellow",
                     "extendedProps": {
                         "detail": f"{ban} / {name} / {vval}",
                         "cat": "1단계 발표",
                     }
                 })
 
+            # 최종 발표(Q열 → 2차 발표로 간주)
             q_date = safe_date(row.iloc[COL_Q])
             if q_date and q_date.year == target_year:
                 title = f"{ban}/{name}/{two_kor(univ, 3)}/{typ}"
@@ -137,6 +147,7 @@ def build_events(df, target_year=None):
                     "title": title,
                     "start": q_date.isoformat(),
                     "allDay": True,
+                    "color": "green",
                     "extendedProps": {
                         "detail": f"{ban} / {name} / {vval}",
                         "cat": "최종 발표",
