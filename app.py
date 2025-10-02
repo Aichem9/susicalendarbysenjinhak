@@ -9,7 +9,8 @@ from streamlit_calendar import calendar
 st.set_page_config(page_title="수시 일정 캘린더", layout="wide")
 
 st.title("수시 지원/발표 일정 캘린더")
-st.caption("엑셀 업로드 → 10·11·12월 달력에 자동 표시. 이벤트 클릭 시 반/이름/V열 값 표시.")
+st.caption("엑셀 업로드 → 10·11·12월 달력에 자동 표시. 이벤트 클릭 시 반/이름/V열 값 표시.\n"
+           "senjinhak 수시지원 결과 파일을 다운로드하여 사용하세요.")
 
 uploaded = st.file_uploader("엑셀 파일(.xlsx/.xls)을 업로드하세요 (헤더는 3행)", type=["xlsx", "xls"])
 
@@ -148,11 +149,19 @@ def build_events(df, target_year=None):
     return events, target_year
 
 def filter_month_events(events, year, month):
-    mm = f"{year:04d}-{month:02d}"
-    return [ev for ev in events if str(ev["start"]).startswith(mm)]
+    filtered = []
+    for ev in events:
+        try:
+            d = datetime.fromisoformat(ev["start"])
+            if d.year == year and d.month == month:
+                filtered.append(ev)
+        except Exception:
+            continue
+    return filtered
 
 if uploaded is None:
-    st.info("예시: 헤더가 3행에 있고, A/B/D/N/O/P/Q/V 열이 존재하는 엑셀을 올려주세요.")
+    st.info("예시: 헤더가 3행에 있고, A/B/D/N/O/P/Q/V 열이 존재하는 엑셀을 올려주세요. "
+            "senjinhak 수시지원 결과 파일을 다운로드하여 사용하세요.")
     st.stop()
 
 file_bytes = uploaded.read()
@@ -176,4 +185,5 @@ for tab, month in zip(tabs, [10, 11, 12]):
             cat = ext.get("cat", "")
             clicked_detail_placeholder.success(f"[{cat}] {detail}")
 
-st.caption("※ 동일 날짜에 여러 학생 일정이 겹치면 한 화면에 함께 표시됩니다.")
+st.caption("※ 동일 날짜에 여러 학생 일정이 겹치면 한 화면에 함께 표시됩니다. "
+           "senjinhak 수시지원 결과 파일을 다운로드하여 사용하세요.")
