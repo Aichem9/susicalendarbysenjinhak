@@ -180,21 +180,21 @@ df = load_df(file_bytes, uploaded.name)
 
 events_all, yr = build_events(df)
 
-tabs = st.tabs([f"{yr}년 10월", f"{yr}년 11월", f"{yr}년 12월"])
-
 clicked_detail_placeholder = st.empty()
 
-for tab, month in zip(tabs, [10, 11, 12]):
-    with tab:
-        month_events = filter_month_events(events_all, yr, month)
-        opts = fc_options(f"{yr}-{month:02d}-01")
-        state = calendar(events=month_events, options=opts, key=f"cal-{yr}-{month}")
-        if state and "eventClick" in state and state["eventClick"]:
-            info = state["eventClick"]["event"]
-            ext = info.get("extendedProps", {})
-            detail = ext.get("detail", "")
-            cat = ext.get("cat", "")
-            clicked_detail_placeholder.success(f"[{cat}] {detail}")
+# 10월, 11월, 12월을 스크롤로 이어서 출력
+for month in [10, 11, 12]:
+    st.subheader(f"{yr}년 {month}월")
+    month_events = filter_month_events(events_all, yr, month)
+    opts = fc_options(f"{yr}-{month:02d}-01")
+    state = calendar(events=month_events, options=opts, key=f"cal-{yr}-{month}")
+    if state and "eventClick" in state and state["eventClick"]:
+        info = state["eventClick"]["event"]
+        ext = info.get("extendedProps", {})
+        detail = ext.get("detail", "")
+        cat = ext.get("cat", "")
+        clicked_detail_placeholder.success(f"[{cat}] {detail}")
+    st.markdown("---")
 
 st.caption("※ 동일 날짜에 여러 학생 일정이 겹치면 한 화면에 함께 표시됩니다. "
            "senjinhak 수시지원 결과 파일을 다운로드하여 사용하세요.")
